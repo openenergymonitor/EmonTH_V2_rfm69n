@@ -93,6 +93,8 @@ const unsigned long PULSE_MAX_NUMBER = 100;                            // Data s
 #define MAX_SENSORS 4                                                  // The maximum number of external temperature sensors.
                                                                        // (Only the first will be sent by radio without further changes.)
                                                                        
+#define EXTERNAL_TEMP_SENSORS 2                                        // Specify number of external temperature sensors that are connected                                                                      
+                                                                       
 #define FACTORYTESTGROUP 1                                             // Transmit the Factory Test on Grp 1 
                                                                        //   to avoid interference with recorded data at power-up.
 
@@ -154,7 +156,7 @@ DallasTemperature sensors(&oneWire);
 typedef struct 
 {                                                                      // RFM RF payload datastructure
   int temp;
-  int temp_external;
+  int temp_external[EXTERNAL_TEMP_SENSORS];
   int humidity;
   int battery;
   unsigned long pulsecount;
@@ -366,12 +368,14 @@ void loop()
         sensors.setResolution(EEProm.allAddresses[j], TEMPERATURE_PRECISION);      // and set the a to d conversion resolution of each.
       sensors.requestTemperatures();                                   // Send the command to get temperatures
       dodelay(ASYNC_DELAY);                                            //Must wait for conversion, since we use ASYNC mode
-      float temp=(sensors.getTempC(EEProm.allAddresses[0]));
-      digitalWrite(DS18B20_PWR, LOW);
-      if ((temp < 125.0) && (temp > -40.0))
-      {
-        emonth.temp_external = (temp*10);
+      
+      for(int j=0;j<EXTERNAL_TEMP_SENSORS;j++) {
+        float temp=(sensors.getTempC(EEProm.allAddresses[j]));
+        if ((temp < 125.0) && (temp > -40.0)) {
+          emonth.temp_external[j] = (temp*10);
+        }
       }
+      digitalWrite(DS18B20_PWR, LOW);
     }
 
     emonth.battery=int(analogRead(BATT_ADC)*0.0322);                   //read battery voltage, convert ADC to volts x10
@@ -424,7 +428,9 @@ void loop()
 
       if (numSensors)
       {
-        Serial.print("tempex:");Serial.print(emonth.temp_external); Serial.print(",");
+        for(int j=0;j<EXTERNAL_TEMP_SENSORS;j++) {
+          Serial.print("tempex");Serial.print(j);Serial.print(":");Serial.print(emonth.temp_external[j]); Serial.print(",");
+        }
       }
 
       if (SI7021_status)
